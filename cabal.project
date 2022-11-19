@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/slice/carnage.git
+    tag: 1bcf5b7fd9615a4db64c759f0b103c38f3b049ce
