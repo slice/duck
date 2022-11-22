@@ -1,7 +1,6 @@
 module DuckBot.Config (BotConfig (..), DbreeConfig (..)) where
 
 import Data.Aeson (FromJSON)
-import Data.Generics.Product
 import qualified Data.HashMap.Strict
 import Data.Text (Text)
 import GHC.Generics

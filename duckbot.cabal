@@ -10,14 +10,14 @@ extra-source-files: CHANGELOG.md
 
 common common-deps
     build-depends:
-        base ^>=4.14.3.0
-      , calamity==0.2.0.2
+        base
+      , calamity==0.7.0.1
       , async
       , aeson
       , di
       , di-polysemy
-      , generic-lens
-      , lens
+      , optics
+      , optics-extra
       , polysemy
       , polysemy-plugin
       , polysemy-req
@@ -25,26 +25,22 @@ common common-deps
       , text
       , bytestring
       , text-show
-      , carnage
       , data-default
       , colour
       , req
       , unordered-containers
       , http-client
       , time
-    default-language: Haskell2010
+    default-language: GHC2021
     default-extensions:
         GADTs
-        DeriveGeneric
         DuplicateRecordFields
         DataKinds
-        FlexibleContexts
         OverloadedLabels
         OverloadedStrings
-        TypeApplications
-        TypeOperators
-        NamedFieldPuns
         LambdaCase
+        ApplicativeDo
+        BlockArguments
     ghc-options:
         -fplugin=Polysemy.Plugin
         -Wall
@@ -60,7 +56,6 @@ library
     exposed-modules:
         DuckBot
         DuckBot.Config
-        DuckBot.Dbree
     hs-source-dirs: src
 
 executable duckbot
