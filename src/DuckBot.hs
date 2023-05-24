@@ -15,23 +15,21 @@ import Control.Monad
 import Data.Aeson (eitherDecodeFileStrict')
 import Data.Colour.SRGB (sRGB24read)
 import Data.Default (def)
-import Data.Text (Text)
 import Di qualified
+import DiPolysemy (info)
 import DiPolysemy qualified as DiP
 import DuckBot.Commands
 import DuckBot.Config (BotConfig (..))
-import DuckBot.Effects (HttpEff, interpretHttp)
-import DuckBot.Effects.Radio (RadioEff (..), getMetadata, getRemainingTime)
-import DuckBot.Radio (RadioBotEff (..), RadioError, formatMetadata', registerRadioCommands, runRadioLiq)
-import Network.HTTP.Req qualified as Req
+import DuckBot.Effects (RadioC, interpretHttp)
+import DuckBot.Effects.Radio (getMetadata, getRemainingTime)
+import DuckBot.Radio (RadioError, formatMetadata', radioCommands)
 import Optics
-import Polysemy (Members, Sem)
 import Polysemy qualified as P
 import Polysemy.Async qualified as P
 import Polysemy.Error qualified as P
 import Polysemy.Reader qualified as P
 import Polysemy.Time (interpretTimeGhc)
-import TextShow (showt)
+import Prelude hiding (group)
 
 runBot :: IO ()
 runBot = do
@@ -50,29 +48,24 @@ runBot = do
       . interpretHttp
       . runBotIO' (BotToken $ DuckBot.Config.token config) defaultIntents Nothing
       $ do
-        DiP.info @Text "setting things up >:3"
+        info @Text "setting things up >:3"
 
         forceUpdateStatusSem <- P.embed $ newQSem 0
         let forceUpdateStatus = signalQSem forceUpdateStatusSem
-
-        let runRadioBot :: (P.Member (P.Embed IO) r) => Sem (RadioBotEff ': r) a -> Sem r a
-            runRadioBot = P.interpret \case
-              UpdateNowPlaying -> P.embed forceUpdateStatus
-
-            runRadio :: (Members '[HttpEff, P.Embed IO] r) => Sem (RadioEff ': RadioBotEff ': P.Error RadioError ': r) a -> Sem r (Either RadioError a)
-            runRadio = P.runError . runRadioBot . runRadioLiq
+            interpretRadio :: P.Sem (P.Error RadioError ': r) a -> P.Sem r (Either RadioError a)
+            interpretRadio = P.runError
 
         react @'ReadyEvt $ \ready -> do
           let user = ready ^. #user
-          DiP.info $ "*** bot is READY as " <> displayUser user <> " (" <> showt (getID @User user) <> ")"
-          DiP.info $ "    gateway version: " <> showt (ready ^. #v)
-          DiP.info $ "    session ID: " <> ready ^. #sessionID
-          DiP.info $ "    #guilds: " <> showt (length $ ready ^. #guilds)
+          info @Text $ "*** bot is READY as " <> displayUser user <> " (" <> show (getID @User user) <> ")"
+          info @Text $ "    gateway version: " <> show (ready ^. #v)
+          info @Text $ "    session ID: " <> ready ^. #sessionID
+          info @Text $ "    #guilds: " <> show (length $ ready ^. #guilds)
 
           void $ P.async do
-            DiP.info @Text "continuously setting up now playing"
-            runRadio updateNowPlaying
-            runRadio $ continuouslyUpdateNowPlaying forceUpdateStatusSem
+            info @Text "continuously setting up now playing"
+            interpretRadio updateNowPlaying
+            interpretRadio $ continuouslyUpdateNowPlaying forceUpdateStatusSem
 
         react @('CustomEvt (CtxCommandError FullContext)) \(CtxCommandError ctx err) -> do
           case err of
@@ -81,7 +74,7 @@ runBot = do
             Calamity.Commands.CheckError _ checkMessage ->
               void . reply @Text ctx $ "you can't do that, because: " <> checkMessage
             Calamity.Commands.InvokeError commandName errorReason -> do
-              DiP.error @Text ("command error: " <> showt err)
+              DiP.error @Text ("command error: " <> show err)
               void . reply ctx $
                 intoMsg @Embed
                   ( def
@@ -94,7 +87,7 @@ runBot = do
         addCommands do
           helpCommand
 
-          runRadio registerRadioCommands
+          interpretRadio $ radioCommands (P.embed forceUpdateStatus)
 
           helpC "what ducks do best" . command @'[] "quack" $ \ctx -> do
             void $ tell @Text ctx "quack!"
@@ -122,7 +115,7 @@ runBot = do
 
           pure ()
  where
-  admin :: (P.Member (P.Reader BotConfig) r) => Sem r (Check FullContext)
+  admin :: (P.Member (P.Reader BotConfig) r) => P.Sem r (Check FullContext)
   admin = do
     admins <- P.asks (^. #administrators)
     pure $ buildCheckPure "admin" \ctx ->
@@ -130,18 +123,18 @@ runBot = do
         then Nothing
         else Just "you're not an admin"
 
-  updateNowPlaying :: (BotC r, P.Member RadioEff r) => Sem r ()
+  updateNowPlaying :: (BotC r, RadioC r) => P.Sem r ()
   updateNowPlaying = DiP.push "duck-radio-integration" do
     metadata <- getMetadata
     let listening = Calamity.Types.Model.Presence.Activity.activity (formatMetadata' metadata) Listening
-    DiP.info $ "sending song presence NOW: " <> showt listening
+    info @Text $ "sending song presence NOW: " <> show listening
     sendPresence $ StatusUpdateData Nothing [listening] Online False
 
-  continuouslyUpdateNowPlaying :: (BotC r, P.Member RadioEff r) => QSem -> Sem r ()
+  continuouslyUpdateNowPlaying :: (BotC r, RadioC r) => QSem -> P.Sem r ()
   continuouslyUpdateNowPlaying manuallyUpdateSem = forever $ DiP.push "duck-radio-integration" do
     remaining <- getRemainingTime
-    DiP.info $ "remaining time in this song: " <> showt remaining
+    info @Text $ "remaining time in this song: " <> show remaining
     let songOver = threadDelay $ 1_000_000 * round (remaining + 0.5)
     P.embed $ race songOver (waitQSem manuallyUpdateSem)
-    DiP.info @Text "song ended or requested to manually update, updating now playing now"
+    info @Text "song ended or requested to manually update, updating now playing now"
     updateNowPlaying

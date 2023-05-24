@@ -1,11 +1,11 @@
-module DuckBot.Effects.HTTP (HttpEff (..), req, interpretHttp) where
+module DuckBot.Effects.HTTP (HttpEff (..), request, interpretHttp) where
 
 import Data.Data (Proxy)
 import Network.HTTP.Req qualified as R
 import Polysemy qualified as P
 
 data HttpEff m a where
-  Req ::
+  Request ::
     ( R.HttpMethod method
     , R.HttpBody body
     , R.HttpResponse response
@@ -22,7 +22,7 @@ P.makeSem ''HttpEff
 
 interpretHttp :: (P.Member (P.Embed IO) r) => P.Sem (HttpEff ': r) a -> P.Sem r a
 interpretHttp = P.interpret \case
-  Req method scheme body response params ->
+  Request method scheme body response params ->
     let
       request = R.req method scheme body response params
      in
