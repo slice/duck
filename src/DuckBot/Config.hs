@@ -1,24 +1,20 @@
-module DuckBot.Config (BotConfig (..), DbreeConfig (..)) where
+module DuckBot.Config (BotConfig (..)) where
 
+import Calamity (Snowflake)
+import Calamity.Types (User)
 import Data.Aeson (FromJSON)
-import qualified Data.HashMap.Strict
 import Data.Text (Text)
 import GHC.Generics
-
-data DbreeConfig = DbreeConfig
-  { cookies :: Data.HashMap.Strict.HashMap Text Text,
-    userAgent :: Text
-  }
-  deriving (Generic)
-
-instance FromJSON DbreeConfig
+import Optics (makeFieldLabelsNoPrefix)
 
 data BotConfig = BotConfig
-  { token :: Text,
-    feedbackEmoji :: Text,
-    commandPrefix :: Text,
-    dbree :: DbreeConfig
+  { token :: Text
+  , feedbackEmoji :: Text
+  , commandPrefix :: Text
+  , administrators :: [Snowflake User]
   }
   deriving (Generic)
+
+makeFieldLabelsNoPrefix ''BotConfig
 
 instance FromJSON BotConfig
