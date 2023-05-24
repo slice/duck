@@ -10,13 +10,11 @@ module DuckBot.Effects.Radio (
   RadioC,
 ) where
 
-import Data.Aeson (FromJSON (..), withObject, (.:))
 import DuckBot.Config (BotConfig (..), LiquidsoapConfig (..))
 import DuckBot.Effects.HTTP (HttpEff, request)
+import DuckBot.Prelude
 import Network.HTTP.Req ((/:))
 import Network.HTTP.Req qualified as R
-import Polysemy (Sem)
-import Polysemy qualified as P
 import Polysemy.Error qualified as P
 import Polysemy.Reader qualified as P
 
@@ -43,11 +41,11 @@ data RadioError = DecodingFailed | ParsingFailed
 
 liq ::
   ( R.HttpBodyAllowed (R.AllowsBody method) (R.ProvidesBody body)
-  , P.Member HttpEff r
+  , Member HttpEff r
   , R.HttpMethod method
   , R.HttpBody body
   , R.HttpResponse response
-  , P.Member (P.Reader BotConfig) r
+  , Member (P.Reader BotConfig) r
   ) =>
   method ->
   Text ->
@@ -58,7 +56,7 @@ liq method path body response = do
   LiquidsoapConfig{host, port} <- P.asks liquidsoap
   request method (R.http host /: path) body response (R.port port)
 
-type RadioC r = P.Members '[P.Reader BotConfig, HttpEff, P.Error RadioError] r
+type RadioC r = Members '[P.Reader BotConfig, HttpEff, P.Error RadioError] r
 
 getMetadata :: RadioC r => Sem r Metadata
 getMetadata = do

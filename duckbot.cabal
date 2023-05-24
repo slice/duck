@@ -29,6 +29,7 @@ common common-deps
       , http-client
       , time
       , relude
+      , scientific
     default-language: Haskell2010
     default-extensions:
         GADTs
@@ -71,12 +72,14 @@ library
     import: common-deps
     exposed-modules:
         DuckBot
+        DuckBot.Prelude
         DuckBot.Config
         DuckBot.Commands
         DuckBot.Radio
         DuckBot.Effects
         DuckBot.Effects.Radio
         DuckBot.Effects.HTTP
+        DuckBot.Parsing
     hs-source-dirs: src
 
 executable duckbot

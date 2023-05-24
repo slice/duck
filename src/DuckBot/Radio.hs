@@ -6,24 +6,20 @@ module DuckBot.Radio (
 )
 where
 
-import Calamity (reply)
-import Calamity.Client (BotC)
+import DuckBot.Prelude
+
 import Calamity.Commands
 import Calamity.Commands.Context (FullContext)
 import Calamity.Types.Model.Channel ()
 import DuckBot.Commands
 import DuckBot.Effects.Radio
-import Polysemy qualified as P
+import DuckBot.Parsing
 import Polysemy.Fail qualified as P
 
 radioCommands ::
-  ( BotC r
-  , RadioC r
-  , c ~ FullContext
-  , DSLC c r
-  ) =>
-  P.Sem (P.Fail ': r) () ->
-  P.Sem r ()
+  (BotC r, RadioC r, c ~ FullContext, DSLC c r) =>
+  Sem (P.Fail ': r) () ->
+  Sem r ()
 radioCommands updateNowPlaying = do
   helpC "skips the current song" . commandA @'[] "skip" ["s"] $ \ctx -> do
     skip
@@ -56,13 +52,10 @@ radioCommands updateNowPlaying = do
     updateNowPlaying
     reply_ @Text ctx "ok, updated now playing status (hopefully)"
 
-  commandA @'[Named "speed" Float] "vari" ["v"] \ctx speed -> do
-    if speed < 0.5 || speed > 2
-      then void . reply @Text ctx $ "speed outside of acceptable range ;P"
-      else do
-        setVarispeed speed
-        updateNowPlaying
-        ok ctx
+  commandA @'[Named "speed" Varispeed] "vari" ["v"] \ctx (Varispeed speed) -> do
+    setVarispeed speed
+    updateNowPlaying
+    ok ctx
 
   pure ()
 
