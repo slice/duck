@@ -78,8 +78,8 @@ runBot = do
               void . reply ctx $
                 intoMsg @Embed
                   ( def
-                      & #title ?~ "couldn't run " <> codeline commandName
-                      & #description ?~ "reason: " <> codeline errorReason
+                      & #title ?~ "failed to run " <> codeline commandName
+                      & #description ?~ "something bad happened: " <> codeline errorReason
                       & #footer ?~ EmbedFooter "maybe try again later?" Nothing Nothing
                       & #color ?~ sRGB24read "#f09090"
                   )

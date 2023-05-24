@@ -11,12 +11,14 @@ module DuckBot.Effects.Radio (
 ) where
 
 import Data.Aeson (FromJSON (..), withObject, (.:))
+import DuckBot.Config (BotConfig (..), LiquidsoapConfig (..))
 import DuckBot.Effects.HTTP (HttpEff, request)
 import Network.HTTP.Req ((/:))
 import Network.HTTP.Req qualified as R
 import Polysemy (Sem)
 import Polysemy qualified as P
 import Polysemy.Error qualified as P
+import Polysemy.Reader qualified as P
 
 data Metadata = Metadata
   { artist :: Text
@@ -25,17 +27,17 @@ data Metadata = Metadata
   , initialUri :: Text
   }
 
+{- ORMOLU_DISABLE -}
+
 instance FromJSON Metadata where
   parseJSON = withObject "Metadata" $ \v ->
     Metadata
-      <$> v
-      .: "artist"
-      <*> v
-      .: "title"
-      <*> v
-      .: "on_air_timestamp"
-      <*> v
-      .: "initial_uri"
+      <$> v .: "artist"
+      <*> v .: "title"
+      <*> v .: "on_air_timestamp"
+      <*> v .: "initial_uri"
+
+{- ORMOLU_ENABLE -}
 
 data RadioError = DecodingFailed | ParsingFailed
 
@@ -45,16 +47,18 @@ liq ::
   , R.HttpMethod method
   , R.HttpBody body
   , R.HttpResponse response
+  , P.Member (P.Reader BotConfig) r
   ) =>
   method ->
   Text ->
   body ->
   Proxy response ->
   Sem r response
-liq method path body response =
-  request method (R.http "skipnix" /: path) body response (R.port 8898)
+liq method path body response = do
+  LiquidsoapConfig{host, port} <- P.asks liquidsoap
+  request method (R.http host /: path) body response (R.port port)
 
-type RadioC r = P.Members '[HttpEff, P.Error RadioError] r
+type RadioC r = P.Members '[P.Reader BotConfig, HttpEff, P.Error RadioError] r
 
 getMetadata :: RadioC r => Sem r Metadata
 getMetadata = do

@@ -12,18 +12,15 @@ import Calamity.Commands
 import Calamity.Commands.Context (FullContext)
 import Calamity.Types.Model.Channel ()
 import DuckBot.Commands
-import DuckBot.Config (BotConfig (..))
 import DuckBot.Effects.Radio
 import Polysemy qualified as P
 import Polysemy.Fail qualified as P
-import Polysemy.Reader qualified as P
 
 radioCommands ::
   ( BotC r
   , RadioC r
   , c ~ FullContext
   , DSLC c r
-  , P.Member (P.Reader BotConfig) r
   ) =>
   P.Sem (P.Fail ': r) () ->
   P.Sem r ()
