@@ -30,6 +30,7 @@ common common-deps
       , time
       , relude
       , scientific
+      , data-flags
     default-language: Haskell2010
     default-extensions:
         GADTs

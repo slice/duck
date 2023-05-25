@@ -8,13 +8,31 @@ where
 
 import DuckBot.Prelude
 
+import Calamity (CDNAsset (..), Embed, User (avatar), embedField, embedImage, embedThumbnail)
+import Calamity.Cache.Eff (getUser)
 import Calamity.Commands
 import Calamity.Commands.Context (FullContext)
 import Calamity.Types.Model.Channel ()
+import Data.Colour.SRGB (sRGB24read)
+import Data.Default (Default (..))
+import Data.Map.Strict qualified as Map
+import Data.Text qualified as T
 import DuckBot.Commands
+import DuckBot.Config (BotConfig, artistMappings, radio)
 import DuckBot.Effects.Radio
 import DuckBot.Parsing
+import Network.HTTP.Req (Scheme (..), Url, renderUrl)
+import Optics ((.~), (?~))
 import Polysemy.Fail qualified as P
+import Polysemy.Reader qualified as P
+
+artistAvatar :: (BotC r, Member (P.Reader BotConfig) r) => Text -> Sem r (Maybe (Url 'Https))
+artistAvatar artist = do
+  mappings <- artistMappings <$> P.asks radio
+  maybeUser <- traverse getUser $ Map.lookup artist mappings
+  pure do
+    user <- join maybeUser
+    pure . assetURL . avatar $ user
 
 radioCommands ::
   (BotC r, RadioC r, c ~ FullContext, DSLC c r) =>
@@ -30,7 +48,20 @@ radioCommands updateNowPlaying = do
 
   helpC "what's on the radio?" . commandA @'[] "nowplaying" ["np"] $ \ctx -> do
     metadata <- getMetadata
-    reply_ @Text ctx $ formatMetadata metadata
+    avatar <- artistAvatar (artist metadata)
+    let
+      formatTimestamp timestamp = "<t:" <> timestamp <> ":t>"
+      -- remove .00 at the end
+      wrestleTimestamp = T.reverse . T.drop 3 . T.reverse
+      formatted = formatTimestamp . wrestleTimestamp . onAirSince $ metadata
+      embed =
+        def
+          & #title ?~ title metadata
+          & #description ?~ artist metadata
+          & #fields .~ [embedField "Playing" ("Since " <> formatted)]
+          & #thumbnail .~ (embedThumbnail . renderUrl <$> avatar)
+          & #color ?~ sRGB24read "#14f852"
+    reply_ @Embed ctx embed
 
   helpC "how long until this song is over?" . commandA @'[] "remaining" ["rm"] $ \ctx -> do
     remaining <- getRemainingTime
